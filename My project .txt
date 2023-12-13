@@ -1,0 +1,144 @@
+import pygame
+import sys
+import random
+
+# Initialize Pygame
+pygame.init()
+
+# Constants
+WIDTH, HEIGHT = 800, 600  # Screen dimensions
+FPS = 60  # Frames per second
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+
+# Set up game window
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Arkanoid Game")
+
+# Player attributes
+player_width, player_height = 100, 20
+player_x, player_y = (WIDTH - player_width) // 2, HEIGHT - 50
+player_speed = 7
+
+# Ball attributes
+ball_radius = 10
+ball_x, ball_y = WIDTH // 2, HEIGHT // 2
+ball_speed_x, ball_speed_y = 5, -5
+
+# Brick attributes
+brick_width, brick_height = 80, 30
+brick_colors = [RED, BLUE, GREEN]  # Colors for different brick types
+
+# Define levels (brick structures)
+levels = [
+    [
+        [pygame.Rect(col * brick_width, row * brick_height + 50, brick_width, brick_height) for col in range(10)]
+        for row in range(5)
+    ],
+    [
+        [pygame.Rect(col * brick_width, row * brick_height + 50, brick_width, brick_height) for col in range(10)]
+        for row in range(3)
+    ]
+]
+
+# Power-up attributes
+powerup_width, powerup_height = 20, 20
+powerup_speed = 3
+powerup_active = False
+powerup_x, powerup_y = random.randint(0, WIDTH - powerup_width), -powerup_height
+
+# Score and level
+score = 0
+level = 1
+font = pygame.font.Font(None, 36)
+
+# Game loop
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    # Event handling - Player movement
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed
+    if keys[pygame.K_RIGHT] and player_x < WIDTH - player_width:
+        player_x += player_speed
+
+    # Ball movement
+    ball_x += ball_speed_x
+    ball_y += ball_speed_y
+
+    # Ball collision with walls
+    if ball_x <= 0 or ball_x >= WIDTH:
+        ball_speed_x *= -1
+    if ball_y <= 0:
+        ball_speed_y *= -1
+
+    # Ball collision with paddle
+    if ball_y >= player_y - ball_radius and player_x <= ball_x <= player_x + player_width:
+        ball_speed_y *= -1
+
+    # Ball collision with bricks
+    current_level_bricks = levels[level - 1]
+    for row in range(len(current_level_bricks)):
+        for brick in range(len(current_level_bricks[row])):
+            if current_level_bricks[row][brick].colliderect(
+                    pygame.Rect(ball_x - ball_radius, ball_y - ball_radius, ball_radius * 2, ball_radius * 2)):
+                current_level_bricks[row][brick] = pygame.Rect(0, 0, 0, 0)
+                ball_speed_y *= -1
+                score += 10
+
+                # Activate power-up randomly when a brick is hit
+                if random.random() < 0.1:
+                    powerup_active = True
+                    powerup_x, powerup_y = random.randint(0, WIDTH - powerup_width), -powerup_height
+
+    # Power-up movement and collision
+    if powerup_active:
+        powerup_y += powerup_speed
+        if powerup_y >= player_y - powerup_height and player_x <= powerup_x <= player_x + player_width:
+            powerup_active = False
+            ball_speed_x *= 2
+            ball_speed_y *= 2
+
+    # Check for level completion
+    if all(brick == pygame.Rect(0, 0, 0, 0) for row in current_level_bricks for brick in row):
+        level += 1
+        if level > len(levels):
+            # Game over logic (all levels completed)
+            running = False
+        else:
+            # Reset ball position for next level
+            ball_x, ball_y = WIDTH // 2, HEIGHT // 2
+            ball_speed_y *= -1
+
+    # Render game elements
+    screen.fill(WHITE)
+    pygame.draw.rect(screen, BLACK, (player_x, player_y, player_width, player_height))
+    for row in current_level_bricks:
+        for brick in row:
+            if brick != pygame.Rect(0, 0, 0, 0):
+                pygame.draw.rect(screen, brick_colors[current_level_bricks.index(row) % len(brick_colors)], brick)
+    pygame.draw.circle(screen, BLACK, (ball_x, ball_y), ball_radius)
+
+    # Display power-up if active
+    if powerup_active:
+        pygame.draw.rect(screen, RED, (powerup_x, powerup_y, powerup_width, powerup_height))
+
+    # Display score and level
+    score_text = font.render(f"Score: {score} | Level: {level}", True, BLACK)
+    screen.blit(score_text, (10, 10))
+
+    pygame.display.flip()
+    pygame.time.Clock().tick(FPS)
+
+pygame.quit()
+sys.exit()
+
